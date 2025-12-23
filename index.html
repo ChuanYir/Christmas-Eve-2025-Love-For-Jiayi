@@ -570,6 +570,24 @@
         setInterval(updateCountdown, 1000);
         updateCountdown();
     </script>
+<!-- === 音乐控制代码 Start === -->
+<audio id="bgMusic" loop preload="auto">
+    <source src="music.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    // 音乐播放逻辑：因为浏览器限制，需要用户交互后才能播放
+    // 所以这里绑定点击事件，她随便点一下屏幕，音乐就开始了
+    document.body.addEventListener('click', function() {
+        var audio = document.getElementById('bgMusic');
+        if (audio.paused) {
+            audio.volume = 0.6; // 音量设置 60%，防止太吵
+            audio.play();
+        }
+    }, { once: true }); // once:true 表示只触发一次，避免重复触发
+</script>
+<!-- === 音乐控制代码 End === -->
 </body>
 </html>
+
 
