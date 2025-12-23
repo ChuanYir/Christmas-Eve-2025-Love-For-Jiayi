@@ -28,7 +28,6 @@
             transition: background 1.5s ease-in-out;
         }
 
-        /*Canvas 层级*/
         canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
 
         /* === 信封层 === */
@@ -36,16 +35,17 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #1a0b0b; z-index: 9999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: opacity 1.0s ease; cursor: pointer;
-            will-change: opacity; /* 性能优化：告诉浏览器这个要变 */
+            transition: opacity 0.8s ease; 
         }
         
         .envelope-wrapper {
             position: relative; width: 280px; height: 180px;
             background: #8B0000; border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); /* 阴影简化 */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             display: flex; justify-content: center; align-items: center;
             animation: floatEnvelope 3s ease-in-out infinite;
+            /* 增大点击热区，确保能点到 */
+            cursor: pointer;
         }
         .envelope-wrapper::before {
             content: ''; position: absolute; top: 0; left: 0;
@@ -62,6 +62,7 @@
             margin-top: 40px; color: var(--gold-primary);
             font-family: 'Ma Shan Zheng', cursive; font-size: 1.2rem;
             opacity: 0.8; letter-spacing: 2px; animation: blinkText 2s infinite;
+            pointer-events: none; /* 防止点字点不到信封 */
         }
         @keyframes floatEnvelope { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes pulseSeal { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
@@ -74,12 +75,13 @@
             height: auto; max-height: 92vh;
             opacity: 0; transform: scale(0.95); transition: all 1s ease;
             display: flex; justify-content: center;
+            visibility: hidden; /* 初始隐藏，防止误触 */
         }
 
         .card-gold-edge {
             padding: 3px; border-radius: 30px;
             background: linear-gradient(135deg, var(--gold-primary), var(--gold-light), var(--gold-primary));
-            box-shadow: 0 15px 40px rgba(0,0,0,0.5); /* 阴影优化 */
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
             width: 100%; overflow-y: auto; scrollbar-width: none;
         }
         
@@ -114,9 +116,8 @@
         .highlight-name { font-size: 1.4rem; color: var(--gold-light); margin: 0 4px; }
         .ask-text { font-family:'Ma Shan Zheng', cursive; margin-top:8px; color:var(--gold-primary); font-size: 1.25rem; }
 
-        /* 倒计时 - 移除毛玻璃，提升性能 */
         .countdown-container {
-            background: rgba(0,0,0,0.2); /* 纯色半透明，比 blur 快得多 */
+            background: rgba(0,0,0,0.2);
             border-radius: 15px; padding: 8px; width: 90%; margin-bottom: 15px;
             border: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-around;
             color: var(--gold-primary);
@@ -125,19 +126,24 @@
         .cd-val { font-size: 1.3rem; font-weight: bold; }
         .cd-label { font-size: 0.6rem; opacity: 0.7; }
 
-        .button-group { display: flex; flex-direction: column; gap: 10px; width: 100%; align-items: center; padding-bottom: 5px;}
+        .button-group { display: flex; flex-direction: column; gap: 10px; width: 100%; align-items: center; padding-bottom: 5px; position: relative; min-height: 50px;}
         @media (min-width: 640px) { .button-group { flex-direction: row; justify-content: center; gap: 20px; } }
+
+        button { outline: none; -webkit-tap-highlight-color: transparent; user-select: none; }
 
         .btn-yes {
             width: 140px; padding: 10px 0; border-radius: 50px; font-weight: bold; color: #4d0000; border: none; cursor: pointer;
             background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
             box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 1rem;
             animation: gold-breathing 4s ease-in-out infinite;
+            position: relative; z-index: 50; /* 保证在最上层 */
         }
         .btn-no {
             width: 140px; padding: 10px 0; border-radius: 50px; background: rgba(255,255,255,0.05);
             border: 1px solid rgba(212,175,55,0.4); color: var(--gold-primary); font-weight: bold;
             cursor: pointer; font-size: 1rem;
+            position: relative; /* 初始相对定位 */
+            transition: all 0.1s ease; /* 移动更快 */
         }
         @keyframes gold-breathing { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
 
@@ -153,9 +159,18 @@
         @keyframes bounce-in { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .animate-celebrate { animation: bounce-in 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react/": "https://esm.sh/react@^19.2.3/"
+  }
+}
+</script>
 </head>
 <body class="bg-invite">
     
+    <!-- 音频元素 -->
     <audio id="bgMusic" loop preload="auto">
         <source src="music.mp3" type="audio/mpeg">
     </audio>
@@ -163,7 +178,8 @@
     <canvas id="bg-canvas"></canvas>
     <canvas id="effect-canvas"></canvas>
 
-    <div id="envelope-layer" onclick="openEnvelope()">
+    <!-- 信封层：增加 ontouchstart 以兼容更多手机 -->
+    <div id="envelope-layer" onclick="handleEnvelopeClick()" ontouchstart="handleEnvelopeClick()">
         <div class="envelope-wrapper">
             <div class="heart-seal">❤️</div>
         </div>
@@ -200,8 +216,9 @@
                     </div>
 
                     <div class="button-group">
-                        <button class="btn-yes" onclick="acceptInvitation()">我愿意</button>
-                        <button class="btn-no" id="btn-no">考虑一下</button>
+                        <button class="btn-yes" onclick="acceptInvitation(event)">我愿意</button>
+                        <!-- 这里的 onclick 强制拦截，防止跳转 -->
+                        <button class="btn-no" id="btn-no" onclick="handleNoClick(event)">考虑一下</button>
                     </div>
                 </div>
 
@@ -224,36 +241,106 @@
     </div>
 
     <script>
-        // === 逻辑控制 (JS 优化版) ===
-        function openEnvelope() {
-            var envelope = document.getElementById('envelope-layer');
-            var mainContainer = document.getElementById('container');
-            var audio = document.getElementById('bgMusic');
-            var footer = document.getElementById('footer-text');
+        // === 1. 核心修复：音乐与开场 ===
+        let musicStarted = false; // 防止重复触发
 
-            if (audio.paused) {
-                audio.volume = 0.6; 
-                var playPromise = audio.play();
+        function handleEnvelopeClick() {
+            if (musicStarted) return;
+            musicStarted = true;
+
+            const envelope = document.getElementById('envelope-layer');
+            const mainContainer = document.getElementById('container');
+            const audio = document.getElementById('bgMusic');
+            const footer = document.getElementById('footer-text');
+
+            // --- 强制播放音乐 (核心修复) ---
+            if (audio) {
+                audio.volume = 0.6;
+                // 直接 play，不加任何条件，利用用户当前的点击动作
+                const playPromise = audio.play();
                 if (playPromise !== undefined) {
-                    playPromise.catch(error => { console.log("Auto-play prevented"); });
+                    playPromise.catch(error => {
+                        console.log("Audio play failed (will retry):", error);
+                        // 如果失败，再次监听一次全局点击来重试
+                        document.addEventListener('click', () => audio.play(), { once: true });
+                    });
                 }
             }
 
+            // 动画逻辑
             envelope.style.opacity = '0'; 
-            setTimeout(function() {
+            setTimeout(() => {
                 envelope.style.display = 'none'; 
+                mainContainer.style.visibility = 'visible'; // 确保之前是隐藏的
                 mainContainer.style.opacity = '1';
                 mainContainer.style.transform = 'scale(1)';
                 footer.style.opacity = '1';
-            }, 1000);
+            }, 800);
         }
 
-        // === 视觉效果优化 ===
+        // === 2. 核心修复：拒绝按钮防误触 ===
+        const btnNo = document.getElementById('btn-no');
+        
+        // 处理“考虑一下”按钮的点击：绝对不许跳转！
+        function handleNoClick(e) {
+            e.stopPropagation(); // 阻止事件冒泡
+            e.preventDefault();  // 阻止默认行为
+            
+            // 弹窗提示，或者再次移动
+            dodge(); 
+            // alert("听话，点左边~"); // 如果你需要弹窗就把这行注释打开
+            return false;
+        }
+
+        // 按钮躲避逻辑
+        function dodge() {
+            if (isSuccess) return;
+            // 获取容器范围，防止跑出卡片太远
+            const container = document.querySelector('.card-velvet');
+            const rect = container.getBoundingClientRect();
+            
+            // 计算随机位置 (限制在卡片内部)
+            const maxX = 100; // 左右幅度
+            const maxY = 100; // 上下幅度
+            
+            const randomX = (Math.random() * 2 - 1) * maxX;
+            const randomY = (Math.random() * 2 - 1) * maxY;
+
+            btnNo.style.position = 'absolute'; // 变成绝对定位
+            btnNo.style.transform = `translate(${randomX}px, ${randomY}px)`;
+            
+            // 随机旋转一点点，增加调皮感
+            btnNo.style.rotate = (Math.random() * 20 - 10) + 'deg';
+        }
+
+        // 绑定移动端触摸事件，手指一碰就跑
+        btnNo.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // 防止变成点击
+            dodge();
+        }, { passive: false });
+        
+        btnNo.addEventListener('mouseenter', dodge); // 电脑端鼠标悬停
+
+        // === 3. 正常流程：接受邀请 ===
+        function acceptInvitation(e) {
+            if(e) e.stopPropagation();
+            
+            isSuccess = true;
+            document.body.className = 'bg-success';
+            document.getElementById('content-invite').classList.add('hidden');
+            setTimeout(() => {
+                document.getElementById('content-invite').style.display = 'none';
+                document.getElementById('content-success').classList.remove('hidden');
+            }, 600);
+            createSuccessParticles(); spawnCelebration();
+        }
+
+
+        // === 视觉效果 (雪花/烟花 - 轻量化版) ===
         const bgCanvas = document.getElementById('bg-canvas');
         const effCanvas = document.getElementById('effect-canvas');
         const bgCtx = bgCanvas.getContext('2d');
         const effCtx = effCanvas.getContext('2d');
-        
         let width, height;
         let isSuccess = false;
         let snowflakes = [];
@@ -263,7 +350,6 @@
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
-            // 限制 Canvas 尺寸，防止高清屏卡顿
             bgCanvas.width = width; bgCanvas.height = height;
             effCanvas.width = width; effCanvas.height = height;
         }
@@ -272,15 +358,11 @@
 
         function createSnow() {
             snowflakes = [];
-            // 减少雪花数量：原来是 width/8，现在是 width/20 (更少更流畅)
-            let count = Math.min(width / 20, 50); 
+            let count = Math.min(width / 15, 60); 
             for(let i=0; i<count; i++) {
-                let depth = Math.random();
                 snowflakes.push({
                     x: Math.random() * width, y: Math.random() * height,
-                    r: depth * 3 + 1, // 稍微变小一点
-                    s: depth * 1.5 + 0.5,
-                    o: depth * 0.5 + 0.1
+                    r: Math.random() * 3 + 1, s: Math.random() * 1 + 0.5, o: Math.random() * 0.5 + 0.1
                 });
             }
         }
@@ -288,14 +370,13 @@
         function createSuccessParticles() {
             successParticles = [];
             const colors = ['#D4AF37', '#F7EF8A', '#FFB6C1'];
-            // 减少粒子数量 80 -> 40
-            for(let i=0; i<40; i++) {
+            for(let i=0; i<50; i++) {
                 successParticles.push({
                     x: Math.random() * width, y: height + Math.random() * 200,
-                    size: Math.random() * 6 + 3, speed: Math.random() * 1.5 + 0.5,
+                    size: Math.random() * 6 + 3, speed: Math.random() * 2 + 1,
                     color: colors[Math.floor(Math.random() * colors.length)],
                     type: Math.random() > 0.5 ? 'heart' : 'confetti',
-                    rot: Math.random() * 360, rs: Math.random() * 2 - 1
+                    rot: Math.random() * 360, rs: Math.random() * 4 - 2
                 });
             }
         }
@@ -337,35 +418,8 @@
 
         createSnow(); animate();
 
-        const btnNo = document.getElementById('btn-no');
-        function dodge() {
-            if (isSuccess) return;
-            const maxW = width - 150;
-            const maxH = height - 60;
-            const x = Math.max(10, Math.random() * maxW);
-            const y = Math.max(10, Math.random() * maxH);
-            btnNo.style.position = 'fixed'; 
-            btnNo.style.left = x + 'px'; 
-            btnNo.style.top = y + 'px'; 
-            btnNo.style.zIndex = '1000';
-        }
-        btnNo.addEventListener('mouseenter', dodge);
-        btnNo.addEventListener('touchstart', dodge);
-
-        function acceptInvitation() {
-            isSuccess = true;
-            document.body.className = 'bg-success';
-            document.getElementById('content-invite').classList.add('hidden');
-            setTimeout(() => {
-                document.getElementById('content-invite').style.display = 'none';
-                document.getElementById('content-success').classList.remove('hidden');
-            }, 600);
-            createSuccessParticles(); spawnCelebration();
-        }
-
         function spawnCelebration() {
             const colors = ['#FF1493', '#D4AF37', '#FFFFFF'];
-            // 减少烟花粒子数量 150 -> 60
             for(let i=0; i<60; i++) {
                 const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 10 + 2;
                 explosionParticles.push({
@@ -380,13 +434,11 @@
             effCtx.clearRect(0, 0, width, height);
             explosionParticles = explosionParticles.filter(p => p.life > 0);
             explosionParticles.forEach(p => {
-                p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.015; // 消失得稍微快一点
+                p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.015;
                 effCtx.globalAlpha = p.life; effCtx.fillStyle = p.color;
                 effCtx.beginPath(); effCtx.arc(p.x, p.y, p.size, 0, Math.PI*2); effCtx.fill();
             });
-            if(explosionParticles.length > 0) {
-                requestAnimationFrame(updateExplosion);
-            }
+            if(explosionParticles.length > 0) { requestAnimationFrame(updateExplosion); }
         }
 
         function updateCountdown() {
